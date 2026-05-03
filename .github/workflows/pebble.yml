@@ -17,8 +17,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Check project is initialized
+        id: init
+        run: |
+          if [ -d src ] && [ -f package.json ]; then
+            echo "initialized=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "initialized=false" >> "$GITHUB_OUTPUT"
+            echo "No project found — run 'pebble new-project <name>' to initialize."
+          fi
+
       - name: Set version from tag
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: steps.init.outputs.initialized == 'true' && startsWith(github.ref, 'refs/tags/v')
         run: |
           TAG="${GITHUB_REF#refs/tags/v}"
           MAJOR=$(echo "$TAG" | cut -d. -f1)
@@ -28,14 +38,17 @@ jobs:
           echo "Version set to $VERSION"
 
       - name: Set up Docker Buildx
+        if: steps.init.outputs.initialized == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Build Pebble Docker image
+        if: steps.init.outputs.initialized == 'true'
         run: docker build --platform linux/amd64 -t pebble-builder .
 
       - name: Run Pebble build
+        if: steps.init.outputs.initialized == 'true'
         run: |
-          mkdir -p build
+          mkdir -p build resources
           docker run --rm --platform linux/amd64 \
             -v "$(pwd)/src:/app/src:ro" \
             -v "$(pwd)/resources:/app/resources:ro" \
@@ -45,13 +58,14 @@ jobs:
             pebble-builder
 
       - name: Upload build artifact
+        if: steps.init.outputs.initialized == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: pebble-app
           path: build/*.pbw
 
       - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: steps.init.outputs.initialized == 'true' && startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: build/*.pbw
