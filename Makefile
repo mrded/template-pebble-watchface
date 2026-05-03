@@ -13,7 +13,7 @@ docker-build:
 	docker build --platform linux/amd64 -t pebble-builder .
 
 docker-run: docker-build
-	mkdir -p build
+	mkdir -p build resources
 	docker run --rm --platform linux/amd64 \
 		-v "$(PWD)/src:/app/src:ro" \
 		-v "$(PWD)/resources:/app/resources:ro" \
